@@ -62,8 +62,8 @@ jobs:
           Write-Host "Accepting WiX v7 EULA..."
           wix eula accept wix7
           Write-Host "Adding WiX UI and Util extensions..."
-          wix extension add -g WixToolset.UI.wixext --version 7.0.1
-          wix extension add -g WixToolset.Util.wixext --version 7.0.1
+          wix extension add -g WixToolset.UI.wixext/7.0.1
+          wix extension add -g WixToolset.Util.wixext/7.0.1
           wix extension list -g
 
       - name: Determine Application Version
