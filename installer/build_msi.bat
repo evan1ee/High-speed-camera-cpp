@@ -78,9 +78,31 @@ rem -------------------------------------------------------------------------
 set "BUILD_DIR=%GUI_DIR%build"
 echo.
 echo [1/5] Configuring CMake...
+set "CMAKE_CONFIGURED=0"
 cmake -S "%GUI_DIR%." -B "%BUILD_DIR%" -G "Visual Studio 17 2022" -A x64 -DCMAKE_PREFIX_PATH="%QT_DIR%"
-if errorlevel 1 (
-    echo [ERROR] CMake configure failed.
+if not errorlevel 1 (
+    set "CMAKE_CONFIGURED=1"
+) else (
+    echo [INFO] Visual Studio 17 2022 generator not available. Attempting Ninja / default MSVC generator...
+    if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
+    cmake -S "%GUI_DIR%." -B "%BUILD_DIR%" -G "Ninja Multi-Config" -DCMAKE_PREFIX_PATH="%QT_DIR%"
+    if not errorlevel 1 (
+        set "CMAKE_CONFIGURED=1"
+    ) else (
+        if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
+        cmake -S "%GUI_DIR%." -B "%BUILD_DIR%" -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="%QT_DIR%"
+        if not errorlevel 1 (
+            set "CMAKE_CONFIGURED=1"
+        ) else (
+            if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
+            cmake -S "%GUI_DIR%." -B "%BUILD_DIR%" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="%QT_DIR%"
+            if not errorlevel 1 set "CMAKE_CONFIGURED=1"
+        )
+    )
+)
+
+if not "%CMAKE_CONFIGURED%"=="1" (
+    echo [ERROR] CMake configure failed with all attempted generators.
     exit /b 1
 )
 
@@ -92,6 +114,18 @@ if errorlevel 1 (
     exit /b 1
 )
 
+rem Locate compiled binaries (handles both multi-config and single-config generator layouts)
+if exist "%BUILD_DIR%\Release\capture_gui_qt.exe" (
+    set "APP_EXE=%BUILD_DIR%\Release\capture_gui_qt.exe"
+    set "TEST_EXE=%BUILD_DIR%\Release\hsc_tests.exe"
+) else if exist "%BUILD_DIR%\capture_gui_qt.exe" (
+    set "APP_EXE=%BUILD_DIR%\capture_gui_qt.exe"
+    set "TEST_EXE=%BUILD_DIR%\hsc_tests.exe"
+) else (
+    echo [ERROR] Built binaries not found in %BUILD_DIR%!
+    exit /b 1
+)
+
 rem -------------------------------------------------------------------------
 rem 4. Run Verification Tests
 rem -------------------------------------------------------------------------
@@ -99,7 +133,7 @@ echo.
 echo [3/5] Running verification tests before packaging...
 set "ORIG_PATH=%PATH%"
 set "PATH=%QT_DIR%\bin;%RUNTIME_DIR%;%PATH%"
-"%BUILD_DIR%\Release\hsc_tests.exe"
+"%TEST_EXE%"
 set "TEST_EXIT=!ERRORLEVEL!"
 set "PATH=%ORIG_PATH%"
 
@@ -120,7 +154,7 @@ mkdir "%STAGING_DIR%drivers"
 mkdir "%STAGING_DIR%data"
 mkdir "%STAGING_DIR%settings"
 
-copy "%BUILD_DIR%\Release\capture_gui_qt.exe" "%STAGING_DIR%" >nul
+copy "%APP_EXE%" "%STAGING_DIR%" >nul
 copy "%INSTALLER_DIR%app_icon.ico" "%STAGING_DIR%" >nul
 if exist "%REPO_ROOT%app_icon.png" copy "%REPO_ROOT%app_icon.png" "%STAGING_DIR%" >nul
 
