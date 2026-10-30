@@ -46,7 +46,6 @@ jobs:
           version: '6.8.0'
           target: 'desktop'
           arch: 'win64_msvc2022_64'
-          modules: 'qtsvg'
           cache: true
 
       - name: Install WiX Toolset & Extensions
